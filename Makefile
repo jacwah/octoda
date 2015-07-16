@@ -1,10 +1,13 @@
 TARGET=8da
-CC=gcc
+CC=/usr/bin/gcc
+INSTALL=/usr/bin/install
 override CFLAGS:=-g --std=c99 -Wall -Wpedantic -Wshadow -Werror $(CFLAGS)
 DEPS=
 OBJ=$(patsubst %.c, %.o, $(wildcard *.c))
 
-.PHONY: default all clean
+bindir=/usr/local/bin
+
+.PHONY: default all clean install
 
 default: $(TARGET)
 all: default
@@ -14,6 +17,9 @@ all: default
 
 $(TARGET): $(OBJ)
 	$(CC) -o $@ $^ $(CFLAGS)
+
+install: all
+	$(INSTALL) $(TARGET) $(bindir)/$(TARGET)
 
 clean:
 	-rm -f *.o
