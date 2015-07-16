@@ -6,154 +6,162 @@
 
 #include <arpa/inet.h>
 
-#define MAX_PROGRAM_SIZE (0x1000 - 0x200)
-#define PRINT_ALIGN 8
+#define PROGRAM_OFFSET 0x200
+#define MAX_PROGRAM_SIZE (0x1000 - PROGRAM_OFFSET)
+#define PRINT_ALIGN 6
 
-static void print_name(const char *name)
+static void print_ouput_header()
+{
+    printf("addr:  [code]  inst  arg1, arg2\n"
+           "-------------------------------\n");
+}
+
+static void print_ophead(uint16_t op, const char *name, int index)
 {
     assert(strlen(name) < PRINT_ALIGN);
 
-    printf("%s", name);
+    printf("%04X: [%04X]  %s", index * 2 + PROGRAM_OFFSET, op, name);
     for (int i = 0; i < PRINT_ALIGN - strlen(name); i++)
         printf(" ");
 }
 
-// print_addr(op, "CALL") -> "CALL 200"
-static void print_addr(uint16_t op, const char *name)
+static void print_noarg(uint16_t op, const char *name, int index)
 {
-    print_name(name);
+    print_ophead(op, name, index);
+    printf("\n");
+}
+
+static void print_addr(uint16_t op, const char *name, int index)
+{
+    print_ophead(op, name, index);
     printf("%X\n", op & 0x0FFF);
 }
 
-// print_vx_nn(op, "SE") -> "SE V2, 10"
-static void print_vx_nn(uint16_t op, const char *name)
+static void print_vx_nn(uint16_t op, const char *name, int index)
 {
-    print_name(name);
+    print_ophead(op, name, index);
     printf("V%X, %X\n", (op & 0x0F00) >> 8, op & 0x00FF);
 }
 
-// print_vx_vy(op, "AND") -> "AND V0, V1"
-static void print_vx_vy(uint16_t op, const char *name)
+static void print_vx_vy(uint16_t op, const char *name, int index)
 {
-    print_name(name);
+    print_ophead(op, name, index);
     printf("V%X, V%X\n", (op & 0x0F00) >> 8, (op & 0x00F0) >> 4);
 }
 
-// print_vx_vy_n(op, "DRW") -> "DRW V0, V1, A"
-static void print_vx_vy_n(uint16_t op, const char *name)
+static void print_vx_vy_n(uint16_t op, const char *name, int index)
 {
-    print_name(name);
+    print_ophead(op, name, index);
     printf("V%X, V%X, %X\n", (op & 0x0F00) >> 8,
                              (op & 0x00F0) >> 4,
                               op & 0x000F);
 }
 
-// print_vx(op, "SKP") -> "SKP V4"
-static void print_vx(uint16_t op, const char *name)
+static void print_vx(uint16_t op, const char *name, int index)
 {
-    print_name(name);
+    print_ophead(op, name, index);
     printf("V%X\n", (op & 0x0F00) >> 8);
 }
 
-static void print_invalid(uint16_t op)
+static void print_invalid(uint16_t op, int index)
 {
-    print_name("INVALID");
-    printf("%X\n", op);
+    print_noarg(op, "INVALID", index);
 }
 
-void print_opcode(uint16_t op)
+/* Print a line to stdin. index * 2 + PROGRAM_OFFSET = address */
+void print_opcode(uint16_t op, int index)
 {
     switch ((op & 0xF000) >> 12) {
     case 0x0:
         if (op == 0x00E0)
-            printf("CLS\n");
+            print_noarg(op, "CLS", index);
         else if (op == 0x00EE)
-            printf("RET\n");
+            print_noarg(op, "RET", index);
         else
-            printf("SYS %X\n", op & 0x0FFF);
+            print_addr(op, "SYS", index);
         break;
     case 0x1:
-        print_addr(op, "JMP");
+        print_addr(op, "JMP", index);
         break;
     case 0x2:
-        print_addr(op, "CALL");
+        print_addr(op, "CALL", index);
         break;
     case 0x3:
-        print_vx_nn(op, "SE");
+        print_vx_nn(op, "SE", index);
         break;
     case 0x4:
-        print_vx_nn(op, "SNE");
+        print_vx_nn(op, "SNE", index);
         break;
     case 0x5:
         if ((op & 0x000F) == 0)
-            print_vx_vy(op, "SE");
+            print_vx_vy(op, "SE", index);
         else
-            print_invalid(op);
+            print_invalid(op, index);
         break;
     case 0x6:
-        print_vx_nn(op, "LD");
+        print_vx_nn(op, "LD", index);
         break;
     case 0x7:
-        print_vx_nn(op, "ADD");
+        print_vx_nn(op, "ADD", index);
         break;
     case 0x8:
         switch (op & 0x000F) {
         case 0x0:
-            print_vx_vy(op, "LD");
+            print_vx_vy(op, "LD", index);
             break;
         case 0x1:
-            print_vx_vy(op, "OR");
+            print_vx_vy(op, "OR", index);
             break;
         case 0x2:
-            print_vx_vy(op, "AND");
+            print_vx_vy(op, "AND", index);
             break;
         case 0x3:
-            print_vx_vy(op, "XOR");
+            print_vx_vy(op, "XOR", index);
             break;
         case 0x4:
-            print_vx_vy(op, "ADD");
+            print_vx_vy(op, "ADD", index);
             break;
         case 0x5:
-            print_vx_vy(op, "SUB");
+            print_vx_vy(op, "SUB", index);
             break;
         case 0x6:
-            print_vx_vy(op, "SHR");
+            print_vx_vy(op, "SHR", index);
             break;
         case 0x7:
-            print_vx_vy(op, "SUBN");
+            print_vx_vy(op, "SUBN", index);
             break;
         case 0xE:
-            print_vx_vy(op, "SHL");
+            print_vx_vy(op, "SHL", index);
             break;
         default:
-            print_invalid(op);
+            print_invalid(op, index);
         }
         break;
     case 0x9:
-        print_vx_vy(op, "SNE");
+        print_vx_vy(op, "SNE", index);
         break;
     case 0xA:
-        print_addr(op, "LDI");
+        print_addr(op, "LDI", index);
         break;
     case 0xB:
-        print_addr(op, "JPO");
+        print_addr(op, "JPO", index);
         break;
     case 0xC:
-        print_vx_nn(op, "RND");
+        print_vx_nn(op, "RND", index);
         break;
     case 0xD:
-        print_vx_vy_n(op, "DRW");
+        print_vx_vy_n(op, "DRW", index);
         break;
     case 0xE:
         if ((op & 0x00FF) == 0x009E)
-            print_vx(op, "SKP");
+            print_vx(op, "SKP", index);
         else if ((op &0x00FF) == 0x00A1)
-            print_vx(op, "SKNP");
+            print_vx(op, "SKNP", index);
         else
-            print_invalid(op);
+            print_invalid(op, index);
         break;
     case 0xF:
-        print_name("LD");
+        print_ophead(op, "LD", index);
         printf("NOT IMPLEMENTED\n");
         break;
 /*
@@ -262,8 +270,9 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    print_ouput_header();
     for (int i = 0; i < length; i++) {
-        print_opcode(program[i]);
+        print_opcode(program[i], i);
     }
 
     return 0;
