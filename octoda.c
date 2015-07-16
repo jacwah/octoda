@@ -259,7 +259,8 @@ int main(int argc, char **argv)
     int length;
 
     if (argc != 2) {
-        fprintf(stderr, "usage: %s <program>\n", argv[0]);
+        fprintf(stderr, "8da: CHIP-8 disassembler by Jacob Wahlgren\n"
+                        "usage: %s <program>\n", argv[0]);
         return 1;
     }
 
