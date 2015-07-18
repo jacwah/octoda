@@ -257,6 +257,13 @@ int discover_data_types(enum data_type *types, uint8_t *program, int index)
         case 0x1:
             index = EXTRACT_0XXX(op) - PROGRAM_OFFSET;
             break;
+        // Skip next instruction on condition
+        case 0x3:
+        case 0x4:
+        case 0x5:
+        case 0x9:
+        case 0xE:
+            discover_data_types(types, program, index + 4);
         default:
             index += 2;
         }
