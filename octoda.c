@@ -10,6 +10,20 @@
 #define MAX_PROGRAM_SIZE (0x1000 - PROGRAM_OFFSET)
 #define PRINT_ALIGN 6
 
+/*** EXTRACT_XXXX: Extract macros ***
+ * Extract part of an opcode and right shift it
+ * Example: EXTRACT_X000(0x1234) -> 0x0001
+ * Example: EXTRACT_0XX0(0x1234) -> 0x0023
+ ***                              ***/
+#define EXTRACT_X000(x) (((x) & 0xF000) >> 12)
+#define EXTRACT_0XXX(x) ((x) & 0x0FFF)
+#define EXTRACT_0X00(x) (((x) & 0x0F00) >> 8)
+#define EXTRACT_00X0(x) (((x) & 0x00F0) >> 4)
+#define EXTRACT_000X(x) ((x) & 0x000F)
+#define EXTRACT_00XX(x) ((x) & 0x00FF)
+#define EXTRACT_0XX0(x) (((x) & 0x0FF0) >> 4)
+
+
 static void print_ouput_header()
 {
     printf("addr: [code]  inst  arg1, arg2\n"
@@ -222,6 +236,35 @@ The interpreter reads values from memory starting at location I into registers V
     }
 }
 
+enum data_type { DATA = 0, CODE };
+
+/* Try to infer what is code and what is data.
+ * Traverse code to figure out what is reachable by code.
+ * The BNNN opcode makes this impossible, so this won't work for programs using
+ * that particular code.
+ */
+int discover_data_types(enum data_type *types, uint8_t *program, int index)
+{
+    while (types[index] != CODE) {
+        uint16_t op = program[index] << 8 | program[index + 1];
+
+        types[index] = CODE;
+        types[index + 1] = CODE;
+
+        // Will crash if jump to something below PROGRAM_OFFSET
+        switch (EXTRACT_X000(op)) {
+        // Jump
+        case 0x1:
+            index = EXTRACT_0XXX(op) - PROGRAM_OFFSET;
+            break;
+        default:
+            index += 2;
+        }
+    }
+
+    return 0;
+}
+
 /* Read a program from a file on disk. Return number of opcodes read. */
 int read_file(uint8_t *program, const char *fn)
 {
@@ -255,7 +298,8 @@ int read_file(uint8_t *program, const char *fn)
 
 int main(int argc, char **argv)
 {
-    uint8_t program[MAX_PROGRAM_SIZE];
+    uint8_t program[MAX_PROGRAM_SIZE] = { 0 };
+    enum data_type types[MAX_PROGRAM_SIZE] = { DATA };
     int length;
 
     if (argc != 2) {
@@ -264,7 +308,6 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    memset(program, 0, sizeof(program));
     length = read_file(program, argv[1]);
 
     if (length < 0) {
@@ -272,12 +315,18 @@ int main(int argc, char **argv)
     }
 
     print_ouput_header();
+    discover_data_types(types, program, 0);
 
-    // Opcodes are two bytes wide
     for (int i = 0; i < length; i += 2) {
-        uint16_t op = program[i] << 8 | program[i + 1];
+            // Opcodes are two bytes wide
+            uint16_t op = program[i] << 8 | program[i + 1];
 
-        print_opcode(op, i);
+        if (types[i] == CODE) {
+            print_opcode(op, i);
+        } else {
+            print_ophead(op, "DATA", i);
+            putc('\n', stdout);
+        }
     }
 
     return 0;
