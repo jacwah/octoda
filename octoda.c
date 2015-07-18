@@ -12,7 +12,7 @@
 
 static void print_ouput_header()
 {
-    printf("addr:  [code]  inst  arg1, arg2\n"
+    printf("addr: [code]  inst  arg1, arg2\n"
            "-------------------------------\n");
 }
 
@@ -20,7 +20,7 @@ static void print_ophead(uint16_t op, const char *name, int index)
 {
     assert(strlen(name) < PRINT_ALIGN);
 
-    printf("%04X: [%04X]  %s", index * 2 + PROGRAM_OFFSET, op, name);
+    printf("%04X: [%04X]  %s", index + PROGRAM_OFFSET, op, name);
     for (int i = 0; i < PRINT_ALIGN - strlen(name); i++)
         printf(" ");
 }
@@ -68,7 +68,7 @@ static void print_invalid(uint16_t op, int index)
     print_noarg(op, "INVALID", index);
 }
 
-/* Print a line to stdin. index * 2 + PROGRAM_OFFSET = address */
+/* Print a line to stdin. index + PROGRAM_OFFSET = address */
 void print_opcode(uint16_t op, int index)
 {
     switch ((op & 0xF000) >> 12) {
@@ -223,7 +223,7 @@ The interpreter reads values from memory starting at location I into registers V
 }
 
 /* Read a program from a file on disk. Return number of opcodes read. */
-int read_file(uint16_t *program, const char *fn)
+int read_file(uint8_t *program, const char *fn)
 {
     FILE *fp;
     int readcount;
@@ -234,28 +234,28 @@ int read_file(uint16_t *program, const char *fn)
         return -1;
     }
 
-    readcount = fread(program, sizeof(uint16_t), MAX_PROGRAM_SIZE, fp);
-    if (readcount < 0)
-        fprintf(stderr, "Failed read from '%s': %s\n", fn, strerror(errno));
+    readcount = fread(program, sizeof(uint8_t), MAX_PROGRAM_SIZE, fp);
 
-    if (!feof(fp)) {
+    if (readcount < 1) {
+        if (readcount == 0 && feof(fp))
+            fprintf(stderr, "File empty.\n");
+        else
+            fprintf(stderr, "Failed read from '%s': %s\n", fn, strerror(errno));
+        readcount = -1;
+    } else if (!feof(fp)) {
         fprintf(stderr, "File too long. Maximum size is %d.\n",
                 MAX_PROGRAM_SIZE);
         readcount = -1;
     }
-    fclose(fp);
 
-    // Fix endianness issue on LE
-    for (int i = 0; i < readcount; i++) {
-        program[i] = htons(program[i]);
-    }
+    fclose(fp);
 
     return readcount;
 }
 
 int main(int argc, char **argv)
 {
-    uint16_t program[MAX_PROGRAM_SIZE];
+    uint8_t program[MAX_PROGRAM_SIZE];
     int length;
 
     if (argc != 2) {
@@ -272,8 +272,12 @@ int main(int argc, char **argv)
     }
 
     print_ouput_header();
-    for (int i = 0; i < length; i++) {
-        print_opcode(program[i], i);
+
+    // Opcodes are two bytes wide
+    for (int i = 0; i < length; i += 2) {
+        uint16_t op = program[i] << 8 | program[i];
+
+        print_opcode(op, i);
     }
 
     return 0;
