@@ -275,7 +275,7 @@ int main(int argc, char **argv)
 
     // Opcodes are two bytes wide
     for (int i = 0; i < length; i += 2) {
-        uint16_t op = program[i] << 8 | program[i];
+        uint16_t op = program[i] << 8 | program[i + 1];
 
         print_opcode(op, i);
     }
