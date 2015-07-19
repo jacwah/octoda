@@ -265,9 +265,14 @@ int discover_data_types(enum data_type *types, uint8_t *program, int index)
         // Will crash if jump to something below PROGRAM_OFFSET
         if (IS_JUMP(op)) {
             index = EXTRACT_0XXX(op) - PROGRAM_OFFSET;
+        } else if (IS_STOP(op)) {
+            // Exit loop by not incrementing
         } else {
             if (IS_SKIP(op)) {
                 discover_data_types(types, program, index + OPCODE_SIZE * 2);
+            } else if (IS_CALL(op)) {
+                discover_data_types(types, program,
+                                    EXTRACT_0XXX(op) - PROGRAM_OFFSET);
             }
 
             index += OPCODE_SIZE;
