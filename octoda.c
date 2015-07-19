@@ -8,6 +8,7 @@
 
 #define PROGRAM_OFFSET 0x200
 #define MAX_PROGRAM_SIZE (0x1000 - PROGRAM_OFFSET)
+#define OPCODE_SIZE sizeof(uint16_t)
 #define PRINT_ALIGN 6
 
 /*** EXTRACT_XXXX: Extract macros ***
@@ -238,6 +239,16 @@ The interpreter reads values from memory starting at location I into registers V
 
 enum data_type { DATA = 0, CODE };
 
+#define IS_JUMP(op) (((op) & 0xF000) == 0x1000)
+#define IS_CALL(op) (((op) & 0xF000) == 0x2000)
+#define IS_STOP(op) ((op) == 0x00EE)    // RET
+#define IS_SKIP(op) (((op) & 0xF000) == 0x3000  /* SE   */ \
+                  || ((op) & 0xF000) == 0x4000  /* SNE  */ \
+                  || ((op) & 0xF00F) == 0x5000  /* SE   */ \
+                  || ((op) & 0xF00F) == 0x9000  /* SNE  */ \
+                  || ((op) & 0xF0FF) == 0xE09E  /* SKP  */ \
+                  || ((op) & 0xF0FF) == 0xE0A1) /* SKNP */
+
 /* Try to infer what is code and what is data.
  * Traverse code to figure out what is reachable by code.
  * The BNNN opcode makes this impossible, so this won't work for programs using
@@ -252,20 +263,14 @@ int discover_data_types(enum data_type *types, uint8_t *program, int index)
         types[index + 1] = CODE;
 
         // Will crash if jump to something below PROGRAM_OFFSET
-        switch (EXTRACT_X000(op)) {
-        // Jump
-        case 0x1:
+        if (IS_JUMP(op)) {
             index = EXTRACT_0XXX(op) - PROGRAM_OFFSET;
-            break;
-        // Skip next instruction on condition
-        case 0x3:
-        case 0x4:
-        case 0x5:
-        case 0x9:
-        case 0xE:
-            discover_data_types(types, program, index + 4);
-        default:
-            index += 2;
+        } else {
+            if (IS_SKIP(op)) {
+                discover_data_types(types, program, index + OPCODE_SIZE * 2);
+            }
+
+            index += OPCODE_SIZE;
         }
     }
 
