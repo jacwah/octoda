@@ -1,5 +1,5 @@
 This is a reference to the CHIP-8 instruction set. Descriptions are taken from
-Wikipedia.
+https://en.wikipedia.org/wiki/CHIP-8#Virtual_machine_description.
 
 code  inst description
 --------------------------------------------------------------------------------
