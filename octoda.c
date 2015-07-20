@@ -18,8 +18,6 @@
 #include <string.h>
 #include <assert.h>
 
-#include <arpa/inet.h>
-
 #define PROGRAM_OFFSET 0x200
 #define MAX_PROGRAM_SIZE (0x1000 - PROGRAM_OFFSET)
 #define OPCODE_SIZE sizeof(uint16_t)
