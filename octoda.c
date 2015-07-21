@@ -266,9 +266,16 @@ enum data_type { DATA = 0, CODE };
  * The BNNN opcode makes this impossible, so this won't work for programs using
  * that particular code.
  */
-int discover_data_types(enum data_type *types, uint8_t *program, int index)
+int discover_data_types(enum data_type *types, uint8_t *program,
+                        int length, int index)
 {
-    while (types[index] != CODE) {
+    if (index < 0 || index >= MAX_PROGRAM_SIZE) {
+        fprintf(stderr, "Index out of bounds! (%X)\n", index);
+        return 1;
+    }
+
+    while (index < length
+        && types[index] != CODE) {
         uint16_t op = program[index] << 8 | program[index + 1];
 
         types[index] = CODE;
@@ -281,9 +288,10 @@ int discover_data_types(enum data_type *types, uint8_t *program, int index)
             // Exit loop by not incrementing
         } else {
             if (IS_SKIP(op)) {
-                discover_data_types(types, program, index + OPCODE_SIZE * 2);
+                discover_data_types(types, program, length,
+                                    index + OPCODE_SIZE * 2);
             } else if (IS_CALL(op)) {
-                discover_data_types(types, program,
+                discover_data_types(types, program, length,
                                     EXTRACT_0XXX(op) - PROGRAM_OFFSET);
             }
 
@@ -344,7 +352,7 @@ int main(int argc, char **argv)
     }
 
     print_ouput_header();
-    discover_data_types(types, program, 0);
+    discover_data_types(types, program, length, 0);
 
     for (int i = 0; i < length; i += 2) {
             // Opcodes are two bytes wide
