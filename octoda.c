@@ -36,6 +36,30 @@
 #define EXTRACT_00XX(x) ((x) & 0x00FF)
 #define EXTRACT_0XX0(x) (((x) & 0x0FF0) >> 4)
 
+// Make string constant from macro expanstion
+// More info at https://gcc.gnu.org/onlinedocs/cpp/Stringification.html
+#define XSTR(s) #s
+#define STR(s) XSTR(s)
+
+#define MAX_NAME_LEN 8
+#define MAX_ARG_LEN 4
+#define MAX_ARG_COUNT 3
+
+enum data_type { DATA = 0, CODE };
+
+/* CHIP-8 object
+ *
+ * index: index of the first byte of the object in accomanying program array
+ * size: DATA objects have variable length. CODE objects must have a size of
+ *       OPCODE_SIZE
+ */
+struct c8obj {
+    enum data_type type;
+    int index;
+    int size;
+    char name[MAX_NAME_LEN];
+    char args[MAX_ARG_COUNT][MAX_ARG_LEN];
+};
 
 static void print_ouput_header()
 {
@@ -249,7 +273,6 @@ The interpreter reads values from memory starting at location I into registers V
     }
 }
 
-enum data_type { DATA = 0, CODE };
 
 #define IS_JUMP(op) (((op) & 0xF000) == 0x1000)
 #define IS_CALL(op) (((op) & 0xF000) == 0x2000)
@@ -302,6 +325,68 @@ int discover_data_types(enum data_type *types, uint8_t *program,
     return 0;
 }
 
+/* Fill in a struct c8obj starting at index in program[].
+ * Return the size of the object. (index + size == index of next object)
+ */
+int c8obj_create(struct c8obj *objp, const enum data_type *types,
+                 const uint8_t *program, int index, int program_len)
+{
+    enum data_type type = types[index];
+    int size = 0;
+
+    assert(index >= 0 && index < program_len);
+
+    objp->index = index;
+    objp->type = type;
+
+    if (type == DATA) {
+        size = 0;
+
+        while (index + size < program_len
+            && types[index + size] == DATA) {
+            size++;
+        }
+
+        objp->size = size;
+        strcpy(objp->name, "DATA");
+    } else {
+        if (index + 1 >= program_len) {
+            fprintf(stderr, "Partial opcode!\n");
+            size = -1;
+        } else {
+            size = OPCODE_SIZE;
+            objp->size = size;
+            strcpy(objp->name, "CODE");
+        }
+    }
+
+    return size;
+}
+
+void c8obj_print(const struct c8obj *objp, const uint8_t *program)
+{
+    int index = objp->index;
+    uint16_t value = program[index] << 8 | program[index + 1];
+    const char *name = objp->name;
+
+    // Left-align name with MAX_NAME_LEN spaces
+    printf("%04X: [%04X]  %" STR(MAX_NAME_LEN) "s\n",
+           index + PROGRAM_OFFSET, value, name);
+}
+
+void program_print(const enum data_type *types, const uint8_t *program,
+                   int length)
+{
+    int index = 0;
+
+    while (index < length) {
+        struct c8obj obj;
+
+        index += c8obj_create(&obj, types, program, index, length);
+        c8obj_print(&obj, program);
+    }
+}
+
 /* Read a program from a file on disk. Return number of opcodes read. */
 int read_file(uint8_t *program, const char *fn)
 {
@@ -337,7 +422,7 @@ int main(int argc, char **argv)
 {
     uint8_t program[MAX_PROGRAM_SIZE] = { 0 };
     enum data_type types[MAX_PROGRAM_SIZE] = { DATA };
-    int length;
+    int length = 0;
 
     if (argc != 2) {
         fprintf(stderr, "8da: CHIP-8 disassembler by Jacob Wahlgren\n"
@@ -353,18 +438,7 @@ int main(int argc, char **argv)
 
     print_ouput_header();
     discover_data_types(types, program, length, 0);
-
-    for (int i = 0; i < length; i += 2) {
-            // Opcodes are two bytes wide
-            uint16_t op = program[i] << 8 | program[i + 1];
-
-        if (types[i] == CODE) {
-            print_opcode(op, i);
-        } else {
-            print_ophead(op, "DATA", i);
-            putc('\n', stdout);
-        }
-    }
+    program_print(types, program, length);
 
     return 0;
 }
