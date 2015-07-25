@@ -363,15 +363,35 @@ int c8obj_create(struct c8obj *objp, const enum data_type *types,
     return size;
 }
 
-void c8obj_print(const struct c8obj *objp, const uint8_t *program)
+void c8obj_data_print(const struct c8obj *objp, const uint8_t *program)
 {
     int index = objp->index;
-    uint16_t value = program[index] << 8 | program[index + 1];
-    const char *name = objp->name;
+    int size = objp->size;
 
-    // Left-align name with MAX_NAME_LEN spaces
-    printf("%04X: [%04X]  %" STR(MAX_NAME_LEN) "s\n",
-           index + PROGRAM_OFFSET, value, name);
+    assert(size > 0);
+
+    printf("%04X: -DATA-  ", index + PROGRAM_OFFSET);
+
+    for (int i = 0; i < size - 1; i++) {
+        printf("%02X, ", program[index + i]);
+    }
+
+    printf("%02X\n", program[index + size - 1]);
+}
+
+void c8obj_print(const struct c8obj *objp, const uint8_t *program)
+{
+    if (objp->type == DATA) {
+        c8obj_data_print(objp, program);
+    } else {
+        int index = objp->index;
+        uint16_t value = program[index] << 8 | program[index + 1];
+        const char *name = objp->name;
+
+        // Left-align name with MAX_NAME_LEN spaces
+        printf("%04X: [%04X]  %-" STR(MAX_NAME_LEN) "s\n",
+               index + PROGRAM_OFFSET, value, name);
+    }
 }
 
 void program_print(const enum data_type *types, const uint8_t *program,
