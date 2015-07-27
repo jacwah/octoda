@@ -342,13 +342,53 @@ const char *opcode_get_name(uint16_t op)
     } else if (EXTRACT_X000(op) == 0x3
             || EXTRACT_X000(op) == 0x5) {
         name = "SE";
-    } else if (EXTRACT_X000(op) == 0x4) {
+    } else if (EXTRACT_X000(op) == 0x4
+            || (op & 0xF00F) == 0x9000) {
         name = "SNE";
     } else if (EXTRACT_X000(op) == 0x6
-            || (op & 0xF00F) == 0x8000) {
+            || (op & 0xF00F) == 0x8000
+            || (op & 0xF0FF) == 0xF007
+            || (op & 0xF0FF) == 0xF00A
+            || (op & 0xF0FF) == 0xF015
+            || (op & 0xF0FF) == 0xF018
+            || (op & 0xF0FF) == 0xF029
+            || (op & 0xF0FF) == 0xF033) {
         name = "LD";
-    } else if (EXTRACT_X000(op) == 0x7) {
+    } else if (EXTRACT_X000(op) == 0x7
+            || (op & 0xF00F) == 0x8004) {
         name = "ADD";
+    } else if ((op & 0xF00F) == 0x8001) {
+        name = "OR";
+    } else if ((op & 0xF00F) == 0x8002) {
+        name = "AND";
+    } else if ((op & 0xF00F) == 0x8003) {
+        name = "XOR";
+    } else if ((op & 0xF00F) == 0x8005) {
+        name = "SUB";
+    } else if ((op & 0xF00F) == 0x8006) {
+        name = "SHR";
+    } else if ((op & 0xF00F) == 0x8007) {
+        name = "SUBN";
+    } else if ((op & 0xF00F) == 0x800E) {
+        name = "SHL";
+    } else if (EXTRACT_X000(op) == 0xA) {
+        name = "LDI";
+    } else if (EXTRACT_X000(op) == 0xB) {
+        name = "JPO";
+    } else if (EXTRACT_X000(op) == 0xC) {
+        name = "RND";
+    } else if (EXTRACT_X000(op) == 0xD) {
+        name = "DRW";
+    } else if ((op & 0xF0FF) == 0xE09E) {
+        name = "SKP";
+    } else if ((op & 0xF0FF) == 0xE0A1) {
+        name = "SKNP";
+    } else if ((op & 0xF0FF) == 0xF01E) {
+        name = "ADDI";
+    } else if ((op & 0xF0FF) == 0xF055) {
+        name = "SAVE";
+    } else if ((op & 0xF0FF) == 0xF065) {
+        name = "REST";
     }
 
     return name;
