@@ -325,6 +325,35 @@ int discover_data_types(enum data_type *types, uint8_t *program,
     return 0;
 }
 
+const char *opcode_get_name(uint16_t op)
+{
+    const char *name = "?";
+
+    if (op == 0x00E0) {
+        name = "CLS";
+    } else if (op == 0x00EE) {
+        name = "RET";
+    } else if (EXTRACT_X000(op) == 0x0) {
+        name = "SYS";
+    } else if (EXTRACT_X000(op) == 0x1) {
+        name = "JMP";
+    } else if (EXTRACT_X000(op) == 0x2) {
+        name = "CALL";
+    } else if (EXTRACT_X000(op) == 0x3
+            || EXTRACT_X000(op) == 0x5) {
+        name = "SE";
+    } else if (EXTRACT_X000(op) == 0x4) {
+        name = "SNE";
+    } else if (EXTRACT_X000(op) == 0x6
+            || (op & 0xF00F) == 0x8000) {
+        name = "LD";
+    } else if (EXTRACT_X000(op) == 0x7) {
+        name = "ADD";
+    }
+
+    return name;
+}
+
 /* Fill in a struct c8obj starting at index in program[].
  * Return the size of the object. (index + size == index of next object)
  */
@@ -354,9 +383,11 @@ int c8obj_create(struct c8obj *objp, const enum data_type *types,
             fprintf(stderr, "Partial opcode!\n");
             size = -1;
         } else {
+            uint16_t value = program[index] << 8 | program[index + 1];
+
             size = OPCODE_SIZE;
             objp->size = size;
-            strcpy(objp->name, "CODE");
+            strcpy(objp->name, opcode_get_name(value));
         }
     }
 
